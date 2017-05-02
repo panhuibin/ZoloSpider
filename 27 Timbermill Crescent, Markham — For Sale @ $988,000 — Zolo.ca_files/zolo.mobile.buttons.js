@@ -1,0 +1,2 @@
+function setMobileBtns(){$(".signup-btn").click(function(a){$("#signupModaltop").modal("show");a.stopPropagation();});$("div.dropdown-menu select").click(function(a){a.stopPropagation();});}
+setMobileBtns();

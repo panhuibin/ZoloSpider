@@ -1,0 +1,1 @@
+!function(a){var b=a.lazyLoadXT,c=b.bgAttr||"data-bg";b.selector+=",["+c+"]",a(document).on("lazyshow",function(b){var d=a(b.target);d.css("background-image","url('"+d.attr(c)+"')").removeAttr(c).removeClass("lazy-hidden").addClass("lazy-loaded")})}(window.jQuery||window.Zepto||window.$);

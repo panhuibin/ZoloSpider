@@ -1,0 +1,2 @@
+function searchTypeahead(a){$("#mobile_sarea").typeahead({source:function(b,c){return $.getJSON(a+"typeahead.php",{query:b},function(a){return c(a);})}});$("#sarea").typeahead({source:function(b,c){return $.getJSON(a+"typeahead.php",{query:b},function(a){return c(a);})}});$("#clear-sarea-input-field").on('click',function(e){$("#mobile_sarea").val('').focus();$("#sarea").val('');});}
+searchTypeahead(tld);

@@ -1,0 +1,1 @@
+$("#sticky").waypoint(function(a){$("#sticky").toggleClass("sticky")},{offset:"bottom-in-view"});

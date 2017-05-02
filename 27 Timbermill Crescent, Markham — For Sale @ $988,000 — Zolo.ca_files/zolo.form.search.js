@@ -1,0 +1,2 @@
+function homeSearchSubmit(a){$("form[name=home_search_top]").submit(function(b){var c=$("input[name=sarea]").val();if(typeof google!=="undefined"){d=new google.maps.Geocoder,e={address:c,region:"NO"};d.geocode(e,function(b,d){d==google.maps.GeocoderStatus.OK&&(vp=b[0].geometry.viewport,$.ajax({type:"POST",url:a+"gc.php?sa="+c+"&id="+vp}))})}});}
+homeSearchSubmit(tld);
