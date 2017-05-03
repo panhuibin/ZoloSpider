@@ -231,7 +231,12 @@ def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate
     listing_price = soup.find('div',{'class':'listing-price-value'})
     info_dict.update({u'出价':listing_price})
 
-    
+    bedrooms = soup.find('div',{'class':'listing-values-bedrooms'}).text
+    bathrooms = soup.find('div',{'class':'listing-values-bathrooms'}).text
+    info_dict.update({u'卧室':bedrooms})
+    info_dict.update({u'浴室':bathrooms})
+
+    bedrooms = soup.find('div',{'class':'listing-values-bedrooms'}).text
     info_dict.update({u'户型':content[1]})
         info_dict.update({u'面积':content[2]})
         print "小区名称=%s,户型=%s,面积=%s" %(content[0],content[1],content[2])
