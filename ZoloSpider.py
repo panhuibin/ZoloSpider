@@ -97,10 +97,10 @@ class SQLiteWraper(object):
             pass
         return lists
 
-def gen_house_url_insert_command(info_dict):
+def gen_region_insert_command(info_dict):
     """
-        生成房子数据库插入命令
-        """
+    生成地区数据库插入命令
+    """
     info_list=[u'链接']
     t=[]
     for il in info_list:
@@ -113,11 +113,11 @@ def gen_house_url_insert_command(info_dict):
     return command
 
 
-def gen_single_house_insert_command(info_dict):
+def gen_house_insert_command(info_dict):
     """
     生成房子细节数据库插入命令
     """
-    info_list=[u'链接',u'小区名称',u'户型',u'面积',u'朝向',u'楼层',u'建造时间',u'签约时间',u'签约单价',u'签约总价',u'房产类型',u'学区',u'地铁']
+    info_list=[u'链接',u'地址',u'城市',u'小区',u'出价',u'卧室',u'浴室',u'税费',u'维护费',u'房屋类型',u'房屋风格',u'面积',u'房龄',u'步行程度']
     t=[]
     for il in info_list:
         if il in info_dict:
@@ -125,10 +125,10 @@ def gen_single_house_insert_command(info_dict):
         else:
             t.append('')
     t=tuple(t)
-    command=(r"insert into chengjiao values(?,?,?,?,?,?,?,?,?,?,?,?,?)",t)
+    command=(r"insert into chengjiao values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",t)
     return command
 
-def house_list_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-2"):
+def region_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-2"):
     try:
         req = urllib2.Request(url_page,headers=hds[random.randint(0,len(hds)-1)])
         source_code = urllib2.urlopen(req,timeout=10).read()
@@ -145,16 +145,13 @@ def house_list_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/p
     for house in house_list:
         info_dict={}
         info_dict.update({u'链接':xq.find('a').href})
-        command=gen_xiaoqu_insert_command(info_dict)
+        command=gen_region_insert_command(info_dict)
         db_xq.execute(command,1)
 
-
-
-
     
-def do_house_spider(db_xq,region=u"markham"):
+def do_region_spider(db_xq,region=u"markham"):
     """
-    爬取大区域中的所有小区信息
+    爬取大区域中的所有房子信息
     """
     url=u"https://www.zolo.ca/"+region+"-real-estate"
     #print "do xiaoqu spider:"+url
@@ -175,8 +172,8 @@ def do_house_spider(db_xq,region=u"markham"):
     
     threads=[]
     for i in range(int(d.text)):
-        url_page=u"http://sh.lianjia.com/xiaoqu/d%drs%s/" % (i+1,region)
-        t=threading.Thread(target=xiaoqu_spider,args=(db_xq,url_page))
+        url_page=url+u"/page-%d/" % (i+1)
+        t=threading.Thread(target=region_spider,args=(db_xq,url_page))
         threads.append(t)
     for t in threads:
         t.start()
@@ -185,9 +182,9 @@ def do_house_spider(db_xq,region=u"markham"):
     print u"爬下了 %s 区全部的小区信息" % region
 
 
-def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
+def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
     """
-    爬取页面链接中的成交记录
+    爬取页面链接中的房屋信息
     """
     try:
         #print "chengjiao spider url = "+url_page
@@ -197,11 +194,11 @@ def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate
         soup = BeautifulSoup(plain_text,"html.parser")
     except (urllib2.HTTPError, urllib2.URLError), e:
         print e
-        exception_write('single_house_spider',url_page)
+        exception_write('house_spider',url_page)
         return
     except Exception,e:
         print e
-        exception_write('single_house_spider',url_page)
+        exception_write('house_spider',url_page)
         return
     
     info_dict={}
@@ -234,54 +231,21 @@ def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate
     info_dict.update({u'面积':content[5]})
     info_dict.update({u'房龄':content[6]})
     info_dict.update({u'步行程度':content[7]})
-    command=gen_chengjiao_insert_command(info_dict)
+    command=gen_house_insert_command(info_dict)
     db_cj.execute(command,1)
 
 
-def xiaoqu_chengjiao_spider(db_cj,url=u"https://www.zolo.ca/markham-real-estate/german-mills"):
-    """
-    爬取小区成交记录
-    """
-    try:
-        req = urllib2.Request(url,headers=hds[random.randint(0,len(hds)-1)])
-        source_code = urllib2.urlopen(req,timeout=10).read()
-        plain_text=unicode(source_code)#,errors='ignore')   
-        soup = BeautifulSoup(plain_text,"html.parser")
-    except (urllib2.HTTPError, urllib2.URLError), e:
-        print e
-        exception_write('xiaoqu_chengjiao_spider',xq_name)
-        return
-    except Exception,e:
-        print e
-        exception_write('xiaoqu_chengjiao_spider',xq_name)
-        return
-    content=soup.find('div',{'class':'c-pagination'})
-    total_pages=0
-    if content:
-        #print "content="+str(content)
-        total_page=content.find('span',{'class':'button button--mono button--large button--disabled rounded-none xs-mr05'}).text
-        print "total page = "+str(total_pages)
-    threads=[]
-    for i in range(1..total_page):
-        url_page=url+"/page-%d" % (i)
-        t=threading.Thread(target=chengjiao_spider,args=(db_cj,url_page))
-        threads.append(t)
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
 
-
-def do_xiaoqu_chengjiao_spider(db_xq,db_cj):
+def do_house_spider(db_xq,db_cj):
     """
-    批量爬取小区成交记录
+    批量爬取房屋出价
     """
     count=0
     xq_list=db_xq.fetchall()
     for xq in xq_list:
-        xiaoqu_chengjiao_spider(db_cj,xq[0])
+        house_spider(db_cj,xq[0])
         count+=1
-        print 'have spidered %d xiaoqu' % count
+        print 'have spidered %d house' % count
     print 'done'
 
 
@@ -325,11 +289,11 @@ def exception_spider(db_cj):
             if excep=="":
                 continue
             excep_name,url=excep.split(" ",1)
-            if excep_name=="chengjiao_spider":
-                chengjiao_spider(db_cj,url)
+            if excep_name=="region_spider":
+                region_spider(db_cj,url)
                 count+=1
-            elif excep_name=="xiaoqu_chengjiao_spider":
-                xiaoqu_chengjiao_spider(db_cj,url)
+            elif excep_name=="house_spider":
+                house_spider(db_cj,url)
                 count+=1
             else:
                 print "wrong format"
@@ -340,19 +304,19 @@ def exception_spider(db_cj):
 
 
 if __name__=="__main__":
-    command="create table if not exists xiaoqu (name TEXT primary key UNIQUE, regionb TEXT, regions TEXT, style TEXT, year TEXT)"
+    command="create table if not exists xiaoqu (name TEXT primary key UNIQUE, url TEXT)"
     db_xq=SQLiteWraper('lianjia-xq.db',command)
     
     command="create table if not exists chengjiao (href TEXT primary key UNIQUE, name TEXT, style TEXT, area TEXT, orientation TEXT, floor TEXT, year TEXT, sign_time TEXT, unit_price TEXT, total_price TEXT,fangchan_class TEXT, school TEXT, subway TEXT)"
     db_cj=SQLiteWraper('lianjia-cj.db',command)
     
     #爬下所有的小区信息
-    for region in regions:
-        do_xiaoqu_spider(db_xq,region)
+    for city in regions:
+        do_city_spider(db_xq,region)
     
     #爬下所有小区里的成交信息
-    do_xiaoqu_chengjiao_spider(db_xq,db_cj)
+    do_house_spider(db_xq,db_cj)
     
     #重新爬取爬取异常的链接
-    exception_spider(db_cj)
+    #exception_spider(db_cj)
 
