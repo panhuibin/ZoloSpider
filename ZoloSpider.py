@@ -197,7 +197,7 @@ def do_xiaoqu_spider(db_xq,region=u"markham"):
     print u"爬下了 %s 区全部的小区信息" % region
 
 
-def chengjiao_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
+def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
     """
     爬取页面链接中的成交记录
     """
@@ -209,23 +209,30 @@ def chengjiao_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27
         soup = BeautifulSoup(plain_text,"html.parser")
     except (urllib2.HTTPError, urllib2.URLError), e:
         print e
-        exception_write('chengjiao_spider',url_page)
+        exception_write('single_house_spider',url_page)
         return
     except Exception,e:
         print e
-        exception_write('chengjiao_spider',url_page)
+        exception_write('single_house_spider',url_page)
         return
     
     info_dict={}
-    href=cj.find('a',{'class':'info-col text link-hover-green'})
-    #print "href="+href.text
-    if not href:
-        continue
-    info_dict.update({u'链接':href.attrs['href']})
-    content=href.text.split()
-    if content:
-        info_dict.update({u'小区名称':content[0]})
-        info_dict.update({u'户型':content[1]})
+    info_dict.update({u'链接':url_page]})
+
+    address = soup.find('h1',{'class':'address'}).text
+    info_dict.update({u'地址':address]})
+
+    area = soup.find('div',{'class':'area'})
+    city = area.findAll('a')[0].text
+    community = area.findAll('a')[1].text
+    info_dict.update({u'城市':city})
+    info_dict.update({u'小区':community})
+
+    listing_price = soup.find('div',{'class':'listing-price-value'})
+    info_dict.update({u'出价':listing_price})
+
+    
+    info_dict.update({u'户型':content[1]})
         info_dict.update({u'面积':content[2]})
         print "小区名称=%s,户型=%s,面积=%s" %(content[0],content[1],content[2])
     content=unicode(cj.find('div',{'class':'row1-text'}).text).strip().replace('\n', '')
