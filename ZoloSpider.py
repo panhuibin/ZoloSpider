@@ -29,7 +29,7 @@ hds=[{'User-Agent':'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.6) 
     {'User-Agent':'Opera/9.80 (Windows NT 6.1; U; en) Presto/2.8.131 Version/11.11'}]
     
 
-#上海区域列表
+#cities in GTA
 regions=[u"Markham"]
 
 
@@ -97,13 +97,11 @@ class SQLiteWraper(object):
             pass
         return lists
 
-
-def gen_xiaoqu_insert_command(info_dict):
+def gen_house_url_insert_command(info_dict):
     """
-    生成小区数据库插入命令
-    """
-    #info_list=[u'小区链接',u'大区域',u'小区域',u'小区户型',u'建造时间']
-    info_list=[u'小区链接']
+        生成房子数据库插入命令
+        """
+    info_list=[u'链接']
     t=[]
     for il in info_list:
         if il in info_dict:
@@ -115,9 +113,9 @@ def gen_xiaoqu_insert_command(info_dict):
     return command
 
 
-def gen_chengjiao_insert_command(info_dict):
+def gen_single_house_insert_command(info_dict):
     """
-    生成成交记录数据库插入命令
+    生成房子细节数据库插入命令
     """
     info_list=[u'链接',u'小区名称',u'户型',u'面积',u'朝向',u'楼层',u'建造时间',u'签约时间',u'签约单价',u'签约总价',u'房产类型',u'学区',u'地铁']
     t=[]
@@ -130,15 +128,11 @@ def gen_chengjiao_insert_command(info_dict):
     command=(r"insert into chengjiao values(?,?,?,?,?,?,?,?,?,?,?,?,?)",t)
     return command
 
-
-def xiaoqu_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/aileen-willowbrook"):
-    """
-    爬取页面链接中的小区信息
-    """
+def house_list_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-2"):
     try:
         req = urllib2.Request(url_page,headers=hds[random.randint(0,len(hds)-1)])
         source_code = urllib2.urlopen(req,timeout=10).read()
-        plain_text=unicode(source_code)#,errors='ignore')   
+        plain_text=unicode(source_code)#,errors='ignore')
         soup = BeautifulSoup(plain_text,"html.parser")
     except (urllib2.HTTPError, urllib2.URLError), e:
         print e
@@ -147,28 +141,22 @@ def xiaoqu_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/ailee
         print e
         exit(-1)
     
-    xiaoqu_list=soup.findAll('div',{'class':'info-panel'})
-    for xq in xiaoqu_list:
+    house_list=soup.findAll('div',{'class':'listing-column'})
+    for house in house_list:
         info_dict={}
-        info_dict.update({u'小区链接':url_page})
-        #print "小区名称="+xq.find('a').text
-        #content=unicode(xq.find('div',{'class':'con'}).renderContents().strip())
-        #info=re.match(r".+>(.+)</a>.+>(.+)</a>.+</span>(.+)<span>.+</span>(.+)",content)
-        #if info:
-        #    info=info.groups()
-        #    info_dict.update({u'大区域':info[0]})
-        #    info_dict.update({u'小区域':info[1]})
-        #    info_dict.update({u'小区户型':info[2]})
-        #    info_dict.update({u'建造时间':info[3][:4]})
+        info_dict.update({u'链接':xq.find('a').href})
         command=gen_xiaoqu_insert_command(info_dict)
         db_xq.execute(command,1)
 
+
+
+
     
-def do_xiaoqu_spider(db_xq,region=u"markham"):
+def do_house_spider(db_xq,region=u"markham"):
     """
     爬取大区域中的所有小区信息
     """
-    url=u"https://www.zolo.ca/"+region+"-real-estate/neighbourhoods"
+    url=u"https://www.zolo.ca/"+region+"-real-estate"
     #print "do xiaoqu spider:"+url
     try:
         req = urllib2.Request(url,headers=hds[random.randint(0,len(hds)-1)])
@@ -181,13 +169,13 @@ def do_xiaoqu_spider(db_xq,region=u"markham"):
     except Exception,e:
         print e
         return
-    #print "soup="+str(soup)
-    neighbourhoods=soup.find('section',{'class':'all-neighborhoods xs-mb5'}).find('tbody').findAll('tr')
 
+    d=soup.find('a',{'gahref':'results_totalpage'})
+    print "total_pages = "+d.text
     
     threads=[]
-    for neighbourhood in neighbourhoods:
-        url_page = neighbourhoods.find('a').href
+    for i in range(int(d.text)):
+        url_page=u"http://sh.lianjia.com/xiaoqu/d%drs%s/" % (i+1,region)
         t=threading.Thread(target=xiaoqu_spider,args=(db_xq,url_page))
         threads.append(t)
     for t in threads:
@@ -236,45 +224,17 @@ def single_house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate
     info_dict.update({u'卧室':bedrooms})
     info_dict.update({u'浴室':bathrooms})
 
-    bedrooms = soup.find('div',{'class':'listing-values-bedrooms'}).text
-    info_dict.update({u'户型':content[1]})
-        info_dict.update({u'面积':content[2]})
-        print "小区名称=%s,户型=%s,面积=%s" %(content[0],content[1],content[2])
-    content=unicode(cj.find('div',{'class':'row1-text'}).text).strip().replace('\n', '')
-    #print "row one text = "+content
-    content=content.split('|')
-    if (len(content)>0):
-        floor=content[0].rstrip()
-        info_dict.update({u'楼层':floor})
-    else:
-        floor=""
-    if(len(content)>1):
-        direction=content[1].rstrip()   
-        info_dict.update({u'朝向':direction})
-    else:
-        direction=""
-    print "朝向=%s,楼层=%s" %(direction,floor)
-    sign_up_time=cj.find('div',{'class':'info-col deal-item main strong-num'}).text
-    info_dict.update({u'签约时间':sign_up_time})
-    total_price=cj.find('div',{'class':'info-col price-item main'}).text.rstrip().replace('\n', '')
-    info_dict.update({u'签约总价':total_price})
-    price_per_square_metre=cj.find('div',{'class':'info-col price-item minor'}).text.rstrip()
-    info_dict.update({u'签约单价':price_per_square_metre})
-    print "签约时间=%s,签约总价=%s,签约单价=%s" %(sign_up_time,total_price,price_per_square_metre)
-    property_tag=cj.find('div',{'class':'property-tag-container'})
-    if property_tag:
-        properties = property_tag.findAll('span')
-        for p in properties:
-            print p.text
-            if p.text.find(u'满')!=-1:
-                info_dict.update({u'房产类型':p.text})
-            elif p.text.find(u'学')!=-1:
-                info_dict.update({u'学区':p.text})
-            elif p.text.find(u'距')!=-1:
-                info_dict.update({u'地铁':p.text})
-    
-    command=gen_chengjiao_insert_command(info_dict)
+    listing_content = soup.find('div',{'class':'section-listing-content'})
+    columns = listing_content.findAll('dd',{'class':'column-value'})
 
+    info_dict.update({u'税费':columns[1]})
+    info_dict.update({u'维护费':columns[2]})
+    info_dict.update({u'房屋类型':columns[3]})
+    info_dict.update({u'房屋风格':columns[4]})
+    info_dict.update({u'面积':content[5]})
+    info_dict.update({u'房龄':content[6]})
+    info_dict.update({u'步行程度':content[7]})
+    command=gen_chengjiao_insert_command(info_dict)
     db_cj.execute(command,1)
 
 
@@ -311,7 +271,7 @@ def xiaoqu_chengjiao_spider(db_cj,url=u"https://www.zolo.ca/markham-real-estate/
     for t in threads:
         t.join()
 
-    
+
 def do_xiaoqu_chengjiao_spider(db_xq,db_cj):
     """
     批量爬取小区成交记录
