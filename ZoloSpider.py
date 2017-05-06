@@ -83,7 +83,7 @@ class SQLiteWraper(object):
         return 0
     
     @conn_trans
-    def fetchall(self,command="select name from xiaoqu",conn=None):
+    def fetchall(self,command="select url from xiaoqu",conn=None):
         cu=conn.cursor()
         lists=[]
         try:
@@ -95,7 +95,7 @@ class SQLiteWraper(object):
         return lists
 
 def gen_region_insert_command(info_dict):
-    info_list=[u'url']
+    info_list=[u'url',u'name']
     t=[]
     for il in info_list:
         if il in info_dict:
@@ -103,7 +103,8 @@ def gen_region_insert_command(info_dict):
         else:
             t.append('')
     t=tuple(t)
-    command=(r"insert into xiaoqu values(?,?,?,?,?)",t)
+    command=(r"insert into xiaoqu values(?,?)",t)
+    #print str(command)
     return command
 
 
@@ -119,8 +120,9 @@ def gen_house_insert_command(info_dict):
     command=(r"insert into chengjiao values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",t)
     return command
 
-def region_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-2"):
+def region_spider(db_region,url_page=u"https://www.zolo.ca/markham-real-estate/page-2"):
     try:
+        #print url_page
         req = urllib2.Request(url_page,headers=hds[random.randint(0,len(hds)-1)])
         source_code = urllib2.urlopen(req,timeout=10).read()
         plain_text=unicode(source_code)#,errors='ignore')
@@ -134,13 +136,19 @@ def region_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-
     
     house_list=soup.findAll('div',{'class':'listing-column'})
     for house in house_list:
+        #print "house="+str(house.find('a'))
+        house_href = house.find('a').get('href')
+        house_name = house.find('a').text
+        #print "house_href="+str(house_href)
+        #print "house_name="+str(house_name)
         info_dict={}
-        info_dict.update({u'url':xq.find('a').href})
+        info_dict.update({u'url':house_href})
+        info_dict.update({u'name':house_name})
         command=gen_region_insert_command(info_dict)
-        db_xq.execute(command,1)
+        db_region.execute(command,1)
 
     
-def do_region_spider(db_xq,region=u"markham"):
+def do_region_spider(db_region,url_page):
     url=u"https://www.zolo.ca/"+region+"-real-estate"
     try:
         req = urllib2.Request(url,headers=hds[random.randint(0,len(hds)-1)])
@@ -154,14 +162,16 @@ def do_region_spider(db_xq,region=u"markham"):
         print e
         return
 
-    print "region:"+str(soup)
+    #print "region:"+str(soup)
     total_pages_section=soup.find('section',{'class':'supplementary-nav'}).findAll('a')
-    print "total_pages_section = "+str(total_pages_section)
-    
+    total_pages_section_size = len(total_pages_section)
+    total_pages = total_pages_section[total_pages_section_size-4]
+    #print "total_page_section="+str(total_pages_section)
+    #print "total_pages = "+str(total_pages)
     threads=[]
-    for i in range(int(d.text)):
+    for i in range(int(total_pages.text)):
         url_page=url+u"/page-%d/" % (i+1)
-        t=threading.Thread(target=region_spider,args=(db_xq,url_page))
+        t=threading.Thread(target=region_spider,args=(db_region,url_page))
         threads.append(t)
     for t in threads:
         t.start()
@@ -170,9 +180,9 @@ def do_region_spider(db_xq,region=u"markham"):
     print u"got all information for reagion %s" % region
 
 
-def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
+def house_spider(db_house,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
     try:
-        #print "chengjiao spider url = "+url_page
+        print "house_url = "+url_page
         req = urllib2.Request(url_page,headers=hds[random.randint(0,len(hds)-1)])
         source_code = urllib2.urlopen(req,timeout=10).read()
         plain_text=unicode(source_code)#,errors='ignore')   
@@ -186,6 +196,7 @@ def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-tim
         exception_write('house_spider',url_page)
         return
     
+    print str(soup)
     info_dict={}
     info_dict.update({u'url':url_page})
 
@@ -208,6 +219,12 @@ def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-tim
 
     listing_content = soup.find('div',{'class':'section-listing-content'})
     columns = listing_content.findAll('dd',{'class':'column-value'})
+    print "columns:"+str(columns)
+    for column in columns:
+        column_type = column.find('')
+        column_value = column.find('dd')
+        print "column_type="+column_type
+        print "column_value="+column_value
 
     info_dict.update({u'tax':columns[1]})
     info_dict.update({u'maintainance':columns[2]})
@@ -217,15 +234,17 @@ def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-tim
     info_dict.update({u'age':content[6]})
     info_dict.update({u'walkscore':content[7]})
     command=gen_house_insert_command(info_dict)
-    db_cj.execute(command,1)
+    db_house.execute(command,1)
 
 
 
-def do_house_spider(db_xq,db_cj):
+def do_house_spider(db_region,db_house):
     count=0
-    xq_list=db_xq.fetchall()
+    xq_list=db_region.fetchall()
+    #print xq_list
     for xq in xq_list:
-        house_spider(db_cj,xq[0])
+        #print "xq="+str(xq)
+        house_spider(db_house,xq[0])
         count+=1
         print 'have spidered %d house' % count
     print 'done'
@@ -253,7 +272,7 @@ def exception_read():
         return lines
 
 
-def exception_spider(db_cj):
+def exception_spider(db_house):
     count=0
     excep_list=exception_read()
     while excep_list:
@@ -263,10 +282,10 @@ def exception_spider(db_cj):
                 continue
             excep_name,url=excep.split(" ",1)
             if excep_name=="region_spider":
-                region_spider(db_cj,url)
+                region_spider(db_house,url)
                 count+=1
             elif excep_name=="house_spider":
-                house_spider(db_cj,url)
+                house_spider(db_house,url)
                 count+=1
             else:
                 print "wrong format"
@@ -277,16 +296,16 @@ def exception_spider(db_cj):
 
 
 if __name__=="__main__":
-    command="create table if not exists xiaoqu (name TEXT primary key UNIQUE, url TEXT)"
-    db_xq=SQLiteWraper('lianjia-xq.db',command)
+    command="create table if not exists xiaoqu (url TEXT primary key UNIQUE,name TEXT)"
+    db_region=SQLiteWraper('region.db',command)
     
     command="create table if not exists chengjiao (href TEXT primary key UNIQUE, name TEXT, style TEXT, area TEXT, orientation TEXT, floor TEXT, year TEXT, sign_time TEXT, unit_price TEXT, total_price TEXT,fangchan_class TEXT, school TEXT, subway TEXT)"
-    db_cj=SQLiteWraper('lianjia-cj.db',command)
+    db_house=SQLiteWraper('house.db',command)
     
     for region in regions:
-        do_region_spider(db_xq,region)
+        do_region_spider(db_region,region)
     
-    do_house_spider(db_xq,db_cj)
+    do_house_spider(db_region,db_house)
     
-    #exception_spider(db_cj)
+    #exception_spider(db_house)
 
