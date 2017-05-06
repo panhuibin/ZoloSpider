@@ -37,12 +37,9 @@ lock = threading.Lock()
 
 
 class SQLiteWraper(object):
-    """
-    数据库的一个小封装，更好的处理多线程写入
-    """
     def __init__(self,path,command='',*args,**kwargs):  
-        self.lock = threading.RLock() #锁  
-        self.path = path #数据库连接参数  
+        self.lock = threading.RLock()
+        self.path = path
         
         if command!='':
             conn=self.get_conn()
@@ -98,10 +95,7 @@ class SQLiteWraper(object):
         return lists
 
 def gen_region_insert_command(info_dict):
-    """
-    生成地区数据库插入命令
-    """
-    info_list=[u'链接']
+    info_list=[u'url']
     t=[]
     for il in info_list:
         if il in info_dict:
@@ -114,10 +108,7 @@ def gen_region_insert_command(info_dict):
 
 
 def gen_house_insert_command(info_dict):
-    """
-    生成房子细节数据库插入命令
-    """
-    info_list=[u'链接',u'地址',u'城市',u'小区',u'出价',u'卧室',u'浴室',u'税费',u'维护费',u'房屋类型',u'房屋风格',u'面积',u'房龄',u'步行程度']
+    info_list=[u'url',u'address',u'region',u'community',u'price',u'bedrooms',u'bathrooms',u'tax',u'maintainance',u'type',u'style',u'size',u'age',u'walkscore']
     t=[]
     for il in info_list:
         if il in info_dict:
@@ -144,17 +135,13 @@ def region_spider(db_xq,url_page=u"https://www.zolo.ca/markham-real-estate/page-
     house_list=soup.findAll('div',{'class':'listing-column'})
     for house in house_list:
         info_dict={}
-        info_dict.update({u'链接':xq.find('a').href})
+        info_dict.update({u'url':xq.find('a').href})
         command=gen_region_insert_command(info_dict)
         db_xq.execute(command,1)
 
     
 def do_region_spider(db_xq,region=u"markham"):
-    """
-    爬取大区域中的所有房子信息
-    """
     url=u"https://www.zolo.ca/"+region+"-real-estate"
-    #print "do xiaoqu spider:"+url
     try:
         req = urllib2.Request(url,headers=hds[random.randint(0,len(hds)-1)])
         source_code = urllib2.urlopen(req,timeout=5).read()
@@ -167,8 +154,9 @@ def do_region_spider(db_xq,region=u"markham"):
         print e
         return
 
-    d=soup.find('a',{'gahref':'results_totalpage'})
-    print "total_pages = "+d.text
+    print "region:"+str(soup)
+    total_pages_section=soup.find('section',{'class':'supplementary-nav'}).findAll('a')
+    print "total_pages_section = "+str(total_pages_section)
     
     threads=[]
     for i in range(int(d.text)):
@@ -179,13 +167,10 @@ def do_region_spider(db_xq,region=u"markham"):
         t.start()
     for t in threads:
         t.join()
-    print u"爬下了 %s 区全部的小区信息" % region
+    print u"got all information for reagion %s" % region
 
 
 def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-timbermill-crescent"):
-    """
-    爬取页面链接中的房屋信息
-    """
     try:
         #print "chengjiao spider url = "+url_page
         req = urllib2.Request(url_page,headers=hds[random.randint(0,len(hds)-1)])
@@ -202,44 +187,41 @@ def house_spider(db_cj,url_page=u"https://www.zolo.ca/markham-real-estate/27-tim
         return
     
     info_dict={}
-    info_dict.update({u'链接':url_page]})
+    info_dict.update({u'url':url_page})
 
     address = soup.find('h1',{'class':'address'}).text
-    info_dict.update({u'地址':address]})
+    info_dict.update({u'address':address})
 
     area = soup.find('div',{'class':'area'})
     city = area.findAll('a')[0].text
     community = area.findAll('a')[1].text
-    info_dict.update({u'城市':city})
-    info_dict.update({u'小区':community})
+    info_dict.update({u'region':city})
+    info_dict.update({u'community':community})
 
     listing_price = soup.find('div',{'class':'listing-price-value'})
-    info_dict.update({u'出价':listing_price})
+    info_dict.update({u'price':listing_price})
 
     bedrooms = soup.find('div',{'class':'listing-values-bedrooms'}).text
     bathrooms = soup.find('div',{'class':'listing-values-bathrooms'}).text
-    info_dict.update({u'卧室':bedrooms})
-    info_dict.update({u'浴室':bathrooms})
+    info_dict.update({u'bedrooms':bedrooms})
+    info_dict.update({u'bathrooms':bathrooms})
 
     listing_content = soup.find('div',{'class':'section-listing-content'})
     columns = listing_content.findAll('dd',{'class':'column-value'})
 
-    info_dict.update({u'税费':columns[1]})
-    info_dict.update({u'维护费':columns[2]})
-    info_dict.update({u'房屋类型':columns[3]})
-    info_dict.update({u'房屋风格':columns[4]})
-    info_dict.update({u'面积':content[5]})
-    info_dict.update({u'房龄':content[6]})
-    info_dict.update({u'步行程度':content[7]})
+    info_dict.update({u'tax':columns[1]})
+    info_dict.update({u'maintainance':columns[2]})
+    info_dict.update({u'type':columns[3]})
+    info_dict.update({u'style':columns[4]})
+    info_dict.update({u'size':content[5]})
+    info_dict.update({u'age':content[6]})
+    info_dict.update({u'walkscore':content[7]})
     command=gen_house_insert_command(info_dict)
     db_cj.execute(command,1)
 
 
 
 def do_house_spider(db_xq,db_cj):
-    """
-    批量爬取房屋出价
-    """
     count=0
     xq_list=db_xq.fetchall()
     for xq in xq_list:
@@ -250,9 +232,6 @@ def do_house_spider(db_xq,db_cj):
 
 
 def exception_write(fun_name,url):
-    """
-    写入异常信息到日志
-    """
     lock.acquire()
     f = open('log.txt','a')
     line="%s %s\n" % (fun_name,url)
@@ -262,9 +241,6 @@ def exception_write(fun_name,url):
 
 
 def exception_read():
-    """
-    从日志中读取异常信息
-    """
     lock.acquire()
     if(os.path.exists('log.txt')):
         f=open('log.txt','r')
@@ -278,9 +254,6 @@ def exception_read():
 
 
 def exception_spider(db_cj):
-    """
-    重新爬取爬取异常的链接
-    """
     count=0
     excep_list=exception_read()
     while excep_list:
@@ -310,13 +283,10 @@ if __name__=="__main__":
     command="create table if not exists chengjiao (href TEXT primary key UNIQUE, name TEXT, style TEXT, area TEXT, orientation TEXT, floor TEXT, year TEXT, sign_time TEXT, unit_price TEXT, total_price TEXT,fangchan_class TEXT, school TEXT, subway TEXT)"
     db_cj=SQLiteWraper('lianjia-cj.db',command)
     
-    #爬下所有的小区信息
-    for city in regions:
-        do_city_spider(db_xq,region)
+    for region in regions:
+        do_region_spider(db_xq,region)
     
-    #爬下所有小区里的成交信息
     do_house_spider(db_xq,db_cj)
     
-    #重新爬取爬取异常的链接
     #exception_spider(db_cj)
 
